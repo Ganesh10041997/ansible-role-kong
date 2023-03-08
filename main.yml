@@ -1,0 +1,52 @@
+---
+- name: Install required dependencies
+  apt:
+    name:
+      - openssl
+      - libpcre3
+      - libpcre3-dev
+      - zlib1g-dev
+      - libssl-dev
+    state: present
+
+- name: Download Kong Gateway source code
+  get_url:
+    url: https://github.com/Kong/kong/archive/2.8.1.tar.gz
+    dest: /tmp/kong.tar.gz
+
+- name: Extract Kong Gateway source code
+  unarchive:
+    src: /tmp/kong.tar.gz
+    dest: /opt
+    remote_src: true
+    creates: /opt/kong-2.8.1
+
+- name: Build and install Kong Gateway from source
+  shell: |
+    cd /opt/kong-2.8.1
+    make install
+
+- name: Create Kong Gateway systemd service file
+  copy:
+    content: |
+      [Unit]
+      Description=Kong Gateway
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/kong start
+      ExecReload=/usr/local/bin/kong reload
+      KillMode=process
+      Restart=on-failure
+      RestartSec=5s
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/kong.service
+
+- name: Start Kong Gateway service and enable auto-start
+  systemd:
+    name: kong
+    state: started
+    enabled: yes
